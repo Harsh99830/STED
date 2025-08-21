@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import { useUser } from "@clerk/clerk-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getDatabase, ref, get, update, onValue } from "firebase/database";
+import { getDatabase, ref, get, update, onValue, remove } from "firebase/database";
 import { db } from "../firebase";
 import ConceptLearned from "../components/ConceptLearned";
 import Learned from "../assets/learned.png";
@@ -45,6 +45,8 @@ function Python() {
   const [customProjectTheme, setCustomProjectTheme] = useState("");
   const [showConceptPicker, setShowConceptPicker] = useState(false);
   const [conceptPickerChecked, setConceptPickerChecked] = useState({});
+  const [shownProjects, setShownProjects] = useState([]);
+  const [nextProject, setNextProject] = useState(null);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -190,8 +192,58 @@ function Python() {
     }
   };
 
-  const handleNextProjectClick = () => {
-    setShowProjectOverlay(true);
+  const handleNextProjectClick = async () => {
+    try {
+      // Fetch all available projects from Firebase
+      const projectsRef = ref(db, 'PythonProject');
+      const snapshot = await get(projectsRef);
+      
+      if (snapshot.exists()) {
+        const allProjects = Object.entries(snapshot.val())
+          .filter(([id, project]) => id !== 'AllConcepts') // Filter out non-project entries
+          .map(([id, project]) => ({
+            id,
+            ...project
+          }));
+        
+        // Filter out completed projects and already shown projects
+        const availableProjects = allProjects.filter(project => {
+          // Check if this project is in completed projects using multiple possible keys
+          const isCompleted = completedProjects.some(completedProject => {
+            return (
+              completedProject.projectKey === project.id ||
+              completedProject.key === project.id ||
+              completedProject.projectTitle === project.title ||
+              completedProject.id === project.id
+            );
+          });
+          
+          // Also check if already shown in this session
+          const alreadyShown = shownProjects.includes(project.id);
+          
+          return !isCompleted && !alreadyShown;
+        });
+        
+        if (availableProjects.length > 0) {
+          // Select a random Firebase project from available ones
+          const selectedProject = availableProjects[Math.floor(Math.random() * availableProjects.length)];
+          // Add to shown projects
+          setShownProjects(prev => [...prev, selectedProject.id]);
+          setNextProject(selectedProject);
+          setShowProjectOverlay(true);
+          return;
+        }
+      }
+      
+      // If no Firebase projects available, fallback to Gemini (ProjectRecommender)
+      setNextProject(null); // This will trigger ProjectRecommender in the overlay
+      setShowProjectOverlay(true);
+    } catch (err) {
+      console.error('Error loading next project:', err);
+      // Fallback to ProjectRecommender on error
+      setNextProject(null);
+      setShowProjectOverlay(true);
+    }
   };
 
   const handleCustomProjectClick = () => {
@@ -215,13 +267,20 @@ function Python() {
   // Add handler for ending project
   const handleEndProject = async () => {
     if (!user) return;
+    
     const userRef = ref(db, 'users/' + user.id);
-    await update(userRef, { 'python/PythonProjectStarted': false });
+    await update(userRef, { 
+      'python/PythonProjectStarted': false,
+      'python/PythonCurrentProject': null
+    });
+    
+    // Update local state
     setUserData(prev => ({
       ...prev,
       python: {
         ...prev.python,
-        PythonProjectStarted: false
+        PythonProjectStarted: false,
+        PythonCurrentProject: undefined
       }
     }));
   };
@@ -554,10 +613,74 @@ function Python() {
                     </div>
                   </>
                 ) : (
-                  <div className="text-white">No project assigned. Click "Start Learning" to begin your first project.</div>
+                  <>
+                    <div className="flex justify-center mt-10">
+                    <div className="space-y-9 w-100">
+                      <button
+                        onClick={handleNextProjectClick}
+                        className="w-full inline-flex items-center cursor-pointer justify-center gap-2 bg-purple-900 text-white hover:bg-purple-700 font-semibold px-4 py-3 rounded-lg shadow-md transition-colors"
+                      >
+                        🚀 Start New Project
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </button>
+                      
+                      <button
+                        onClick={handleCustomProjectClick}
+                        className="w-full inline-flex items-center justify-center gap-2 text-white cursor-pointer font-semibold px-4 py-3 rounded-lg shadow-md transition-colors border border-white border-opacity-30"
+                      >
+                        ⚙️ Custom Project
+                        
+                      </button>
+                    </div>
+                    </div>
+                  </>
                 )
               ) : (
-                <div className="text-white">No project assigned. Click "Start Learning" to begin your first project.</div>
+                <>
+                  <div className="flex justify-center mt-10">
+                  <div className="space-y-9 w-100">
+                    <button
+                      onClick={handleNextProjectClick}
+                      className="w-full inline-flex items-center cursor-pointer justify-center gap-2 bg-purple-900 text-white hover:bg-purple-700 font-semibold px-4 py-3 rounded-lg shadow-md transition-colors"
+                    >
+                      ✨ Start New Project
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                    </button>
+                    
+                    <button
+                      onClick={handleCustomProjectClick}
+                      className="w-full inline-flex items-center justify-center gap-2 text-white cursor-pointer font-semibold px-4 py-3 rounded-lg shadow-md transition-colors border border-white border-opacity-30"
+                    >
+                      ⚙️ Custom Project
+                      
+                    </button>
+                  </div>
+                  </div>
+                </>
               )}
             </motion.div>
            
@@ -589,7 +712,99 @@ function Python() {
                         </button>
 
                     <div className="p-12">
-                      <ProjectRecommender learnedConcepts={userData.python?.learnedConcepts} completedProjects={completedProjects}>
+                      {nextProject ? (
+                        <>
+                          <div className="mb-10">
+                            <div className="text-center mb-8 relative">
+                              {/* Next Project Icon */}
+                              <div className="absolute top-0 right-0 z-10">
+                                <div className="group">
+                                  <button
+                                    onClick={handleNextProjectClick}
+                                    className="text-purple-600 hover:text-purple-700 text-sm font-semibold transition-colors relative"
+                                  >
+                                    <img 
+                                      className="w-7" 
+                                      src={SeeAnother} 
+                                      alt="Next project" 
+                                    />
+                                    {/* Hover Overlay */}
+                                    <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20">
+                                      Next Project
+                                      <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                    </div>
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              <h2 className="text-4xl font-bold mb-4 text-purple-700 bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent">
+                                {nextProject.title}
+                              </h2>
+                              <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-purple-700 mx-auto rounded-full"></div>
+                            </div>
+                            
+                            <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-2xl p-8 mb-8 border border-purple-100">
+                              <p className="text-gray-700 text-lg leading-relaxed mb-6">{nextProject.description}</p>
+                              
+                              <div className="bg-white rounded-xl p-6 border border-purple-200">
+                                <h3 className="text-lg font-semibold text-purple-700 mb-3 flex items-center gap-2">
+                                  <span className="text-purple-600">📚</span>
+                                  Required Concepts
+                                </h3>
+                                <div className="flex flex-wrap gap-2">
+                                  {(nextProject.Concept || nextProject.conceptsUsed || 'Python Basics').split(', ').map((concept, index) => (
+                                    <span
+                                      key={index}
+                                      className="inline-block bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-medium border border-purple-200"
+                                    >
+                                      {concept.trim()}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-4">
+                            <button
+                              onClick={async () => {
+                                if (!user) return;
+                                
+                                // Set this project as the user's current project in Firebase
+                                const userRef = ref(db, 'users/' + user.id);
+                                let projectKey = nextProject.id;
+                                if (typeof projectKey === 'string' && projectKey.length > 0) {
+                                  projectKey = projectKey[0].toUpperCase() + projectKey.slice(1);
+                                }
+                                await update(userRef, {
+                                  'python/PythonCurrentProject': projectKey,
+                                  'python/PythonProjectStarted': true
+                                });
+                                setUserData(prev => ({
+                                  ...prev,
+                                  python: {
+                                    ...prev.python,
+                                    PythonCurrentProject: projectKey,
+                                    PythonProjectStarted: true
+                                  }
+                                }));
+                                setShowProjectOverlay(false);
+                                navigate('/python/project');
+                              }}
+                              className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-lg shadow-lg hover:shadow-xl transform hover:scale-105"
+                            >
+                              🚀 Start Project
+                            </button>
+                            <button
+                              onClick={handleCloseProjectOverlay}
+                              className="px-8 py-4 border-2 border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 rounded-xl transition-all duration-300 font-semibold text-lg"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <ProjectRecommender learnedConcepts={userData.python?.learnedConcepts} completedProjects={completedProjects}>
                         {({ recommendedProject, loading, error, getNextProject, hasMultipleProjects, currentProjectIndex, totalProjects, saveProjectToFirebase, generatingProject }) => {
                           if (loading) return (
                             <div className="flex items-center justify-center py-16">
@@ -616,8 +831,8 @@ function Python() {
                               <div className="mb-10">
                                 <div className="text-center mb-8 relative">
                                   {/* See Another Link */}
-                                  <div className="absolute top-0 right-0 z-10 flex gap-2">
-                                    {hasMultipleProjects && (
+                                  {hasMultipleProjects && (
+                                    <div className="absolute top-0 right-0 z-10">
                                       <div className="group">
                                         <button
                                           onClick={getNextProject}
@@ -636,31 +851,8 @@ function Python() {
                                           </div>
                                         </button>
                                       </div>
-                                    )}
-                                    <div className="group">
-                                      <button
-                                        onClick={() => getNextProject(true)}
-                                        className="text-purple-600 hover:text-purple-700 text-sm font-semibold transition-colors relative"
-                                        disabled={generatingProject}
-                                        title="Generate new project with AI"
-                                      >
-                                        {generatingProject ? (
-                                          <div className="w-7 h-7 flex items-center justify-center">
-                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
-                                          </div>
-                                        ) : (
-                                          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                                          </svg>
-                                        )}
-                                        {/* Hover Overlay */}
-                                        <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20">
-                                          Generate New Project
-                                          <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-                                        </div>
-                                      </button>
                                     </div>
-                                  </div>
+                                  )}
                                   
                                   <h2 className="text-4xl font-bold mb-4 text-purple-700 bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent">
                                     {recommendedProject.title}
@@ -748,6 +940,7 @@ function Python() {
                           );
                         }}
                       </ProjectRecommender>
+                      )}
                     </div>
                   </motion.div>
                 </motion.div>

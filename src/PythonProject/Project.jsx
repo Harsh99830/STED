@@ -81,16 +81,16 @@ function Project() {
     setShowEndProjectOverlay(true);
   };
 
-  const handleEndProjectConfirm = async () => {
+  const handleEndProject = async () => {
     try {
       if (user) {
         const userRef = ref(db, 'users/' + user.id);
         const updates = {
-          'python/PythonProjectStarted': false
+          'python/PythonProjectStarted': false,
+          'python/PythonCurrentProject': null
         };
         await update(userRef, updates);
       }
-      // console.log('Project ended');
       setShowEndProjectOverlay(false);
       navigate('/python');
     } catch (err) {
@@ -330,7 +330,7 @@ function Project() {
             <p className="mb-4">Do you want to end this project?</p>
             <div className="flex gap-4 justify-center mt-4">
               <button 
-                onClick={handleEndProjectConfirm} 
+                onClick={handleEndProject} 
                 className="bg-red-600 text-white px-6 py-2 rounded hover:bg-red-700"
               >
                 Yes, End Project
