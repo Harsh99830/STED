@@ -172,34 +172,81 @@ function AI({ userCode, messages, setMessages, terminalOutput = [] }) {
       setLoadError('');
       try {
         // Get user's current project
-        const userRef = ref(db, 'users/' + user.id + '/python');
+        const userRef = ref(db, 'users/' + user.id);
         const userSnap = await get(userRef);
-        if (userSnap.exists()) {
-          const userData = userSnap.val();
-          const projectKey = userData.PythonCurrentProject;
-          if (projectKey) {
-            // Get project data
-            const projectRef = ref(db, 'PythonProject/' + projectKey);
-            const projectSnap = await get(projectRef);
-            if (projectSnap.exists()) {
-              setProjectConfig(projectSnap.val());
-            } else {
-              setProjectConfig(null);
-              setLoadError('Project not found in PythonProject: ' + projectKey);
-            }
-          } else {
-            setProjectConfig(null);
-            setLoadError('No PythonCurrentProject set for user.');
-          }
-        } else {
+        
+        if (!userSnap.exists()) {
           setProjectConfig(null);
           setLoadError('User data not found.');
+          return;
+        }
+        
+        const userData = userSnap.val();
+        const pythonData = userData.python || {};
+        let projectKey = pythonData.PythonCurrentProject;
+        
+        if (!projectKey) {
+          setProjectConfig(null);
+          setLoadError('No Python project started.');
+          return;
+        }
+        
+        console.log('AI: Fetching project with key:', projectKey);
+        
+        // Try with the exact key first
+        let projectRef = ref(db, 'PythonProject/' + projectKey);
+        let projectSnap = await get(projectRef);
+        
+        // If not found, try with normalized (lowercase) key
+        if (!projectSnap.exists()) {
+          const normalizedKey = projectKey.toLowerCase();
+          console.log('AI: Trying with normalized key:', normalizedKey);
+          projectRef = ref(db, 'PythonProject/' + normalizedKey);
+          projectSnap = await get(projectRef);
+          
+          if (projectSnap.exists()) {
+            projectKey = normalizedKey; // Update to the key that worked
+          }
+        }
+        
+        if (projectSnap.exists()) {
+          // Found project in PythonProject node
+          console.log('AI: Found project in database');
+          const projectData = projectSnap.val();
+          
+          // Ensure tasks exist and have the correct structure for both regular and Gemini-generated projects
+          const normalizedProject = {
+            ...projectData,
+            tasks: projectData.tasks || projectData.ProjectTasks || {
+              task1: { 
+                title: projectData.title || 'Main Task', 
+                subtasks: projectData.subtasks || [],
+                description: projectData.description || ''
+              }
+            }
+          };
+          
+          setProjectConfig(normalizedProject);
+        } else {
+          // Fall back to predefined config if available
+          console.log('AI: Project not found in database, trying predefined config');
+          const predefinedConfig = await getProjectConfig(projectKey);
+          
+          if (predefinedConfig) {
+            console.log('AI: Using predefined project config');
+            setProjectConfig(predefinedConfig);
+          } else {
+            setProjectConfig(null);
+            setLoadError('Project data not found. Please try starting a new project.');
+          }
         }
       } catch (error) {
+        console.error('AI: Error fetching project data:', error);
         setProjectConfig(null);
-        setLoadError('Error fetching project data: ' + error.message);
+        setLoadError('Error loading project data. Please try again later.');
       }
     };
+    
     fetchProjectData();
   }, [user]);
 
@@ -242,10 +289,19 @@ What would you like help with?`,
 
   // Generic: find first incomplete task and subtasks
   const getIncompleteTaskAndSubtasks = () => {
-    if (!projectConfig || !projectConfig.tasks) return {};
+    if (!projectConfig || (!projectConfig.tasks && !projectConfig.ProjectTasks)) return {};
+    const tasks = projectConfig.tasks || projectConfig.ProjectTasks;
     const userCodeLower = (userCode || '').toLowerCase();
-    for (const [taskKey, task] of Object.entries(projectConfig.tasks)) {
-      const allSubtasks = task.subtasks || [];
+    for (const [taskKey, task] of Object.entries(tasks)) {
+      let allSubtasks = task.subtasks || [];
+      
+      // Handle ProjectTasks structure where subtasks are individual properties
+      if (allSubtasks.length === 0 && task.title) {
+        allSubtasks = Object.entries(task)
+          .filter(([key]) => key !== 'title')
+          .map(([key, value]) => value);
+      }
+      
       // Consider a subtask complete if any keyword from codeChecks is present in user code
       const completed = (task.codeChecks || []).filter(check => 
         userCodeLower.includes(check.toLowerCase().replace(/[`'"().:]/g, ''))
@@ -280,11 +336,21 @@ What would you like help with?`,
       ).join('\n');
       // Build a list of all tasks and subtasks
       let allTasksText = '';
-      if (projectConfig && projectConfig.tasks) {
-        allTasksText = Object.entries(projectConfig.tasks).map(
+      if (projectConfig && (projectConfig.tasks || projectConfig.ProjectTasks)) {
+        const tasks = projectConfig.tasks || projectConfig.ProjectTasks;
+        allTasksText = Object.entries(tasks).map(
           ([taskKey, task], idx) => {
-            const subtasks = (task.subtasks || []).map((s, i) => `    ${i + 1}. ${s}`).join('\n');
-            return `${idx + 1}. ${task.title}${subtasks ? '\n' + subtasks : ''}`;
+            let subtasks = task.subtasks || [];
+            
+            // Handle ProjectTasks structure where subtasks are individual properties
+            if (subtasks.length === 0 && task.title) {
+              subtasks = Object.entries(task)
+                .filter(([key]) => key !== 'title')
+                .map(([key, value]) => value);
+            }
+            
+            const subtasksList = subtasks.map((s, i) => `    ${i + 1}. ${s}`).join('\n');
+            return `${idx + 1}. ${task.title}${subtasksList ? '\n' + subtasksList : ''}`;
           }
         ).join('\n');
       }

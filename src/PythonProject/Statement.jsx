@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useUser } from '@clerk/clerk-react';
-import { ref, get } from 'firebase/database';
+import { ref, get, onValue, off } from 'firebase/database';
 import { db } from '../firebase';
 import { getProjectConfig, checkTasksAndSubtasks, checkTasksAndSubtasksGemini } from './projectConfig';
 import { FaChevronDown } from 'react-icons/fa';
@@ -32,38 +32,121 @@ function Statement({ userCode, projectConfig, taskCheckStatus, setTaskCheckStatu
       setLoading(true);
       setError('');
       try {
-        // Get user's python.PythonCurrentProject
-        const userRef = ref(db, 'users/' + user.id + '/python');
+        // Get user's data
+        const userRef = ref(db, 'users/' + user.id);
         const userSnap = await get(userRef);
+        
         if (!userSnap.exists()) {
-          setError('No Python project started.');
+          setError('User data not found.');
           setLoading(false);
           return;
         }
+        
         const userData = userSnap.val();
-        const startedKey = userData.PythonCurrentProject;
-        setProjectKey(startedKey);
+        const pythonData = userData.python || {};
+        let startedKey = pythonData.PythonCurrentProject;
+        
         if (!startedKey) {
           setError('No Python project started.');
           setLoading(false);
           return;
         }
-        // Get project data using utility
-        const projectData = await getProjectConfig(startedKey);
+        
+        console.log('Fetching project with key:', startedKey);
+        setProjectKey(startedKey);
+        
+        // Normalize the key to lowercase for generated projects
+        const normalizedKey = startedKey.toLowerCase();
+        console.log('Normalized project key:', normalizedKey);
+        
+        // First try to get the project with the exact key
+        const projectRef = ref(db, 'PythonProject/' + startedKey);
+        const projectSnap = await get(projectRef);
+        
+        let projectData = null;
+        
+        if (projectSnap.exists()) {
+          // Found with exact key
+          projectData = projectSnap.val();
+          console.log('Found project with exact key:', projectData);
+        } else if (startedKey !== normalizedKey) {
+          // Try with normalized key if different
+          console.log('Trying with normalized key...');
+          const normalizedRef = ref(db, 'PythonProject/' + normalizedKey);
+          const normalizedSnap = await get(normalizedRef);
+          
+          if (normalizedSnap.exists()) {
+            projectData = normalizedSnap.val();
+            console.log('Found project with normalized key:', projectData);
+            // Update the project key to match the stored key
+            startedKey = normalizedKey;
+            setProjectKey(normalizedKey);
+          }
+        }
+        
+        // If still not found, try predefined configs
         if (!projectData) {
-          setError('Project not found.');
+          console.log('Project not found in PythonProject, trying predefined configs...');
+          projectData = await getProjectConfig(startedKey);
+          console.log('Predefined project data:', projectData);
+        }
+        
+        if (!projectData) {
+          console.error('Project data is null or undefined');
+          setError('Project data not found.');
           setLoading(false);
           return;
         }
-        setProject(projectData);
+        
+        // Normalize project data structure
+        const normalizedProject = {
+          ...projectData,
+          tasks: projectData.tasks || {
+            task1: { 
+              title: projectData.title || 'Main Task', 
+              subtasks: projectData.subtasks || [],
+              description: projectData.description || ''
+            }
+          },
+          title: projectData.title || 'Python Project',
+          description: projectData.description || '',
+          difficulty: projectData.difficulty || 'beginner',
+          estimatedTime: projectData.estimatedTime || '1-2 hours',
+          concepts: projectData.concepts || []
+        };
+        
+        console.log('Normalized project data:', normalizedProject);
+        setProject(normalizedProject);
         setLoading(false);
+        
       } catch (err) {
-        setError('Failed to load project: ' + err.message);
+        console.error('Error in fetchProjectKeyAndData:', err);
+        setError('Failed to load project. Please try again later.');
         setLoading(false);
       }
     }
+    
     fetchProjectKeyAndData();
-  }, [isLoaded, isSignedIn, user]);
+    
+    // Set up real-time listener for project updates
+    const projectRef = ref(db, 'PythonProject');
+    const projectListener = onValue(projectRef, (snapshot) => {
+      if (projectKey && snapshot.exists()) {
+        const projects = snapshot.val();
+        if (projects[projectKey]) {
+          setProject(prev => ({
+            ...prev,
+            ...projects[projectKey]
+          }));
+        }
+      }
+    });
+    
+    return () => {
+      // Cleanup listener
+      off(projectRef, 'value', projectListener);
+    };
+  }, [isLoaded, isSignedIn, user, projectKey]);
 
   // Close overlay on outside click
   useEffect(() => {
@@ -92,7 +175,17 @@ function Statement({ userCode, projectConfig, taskCheckStatus, setTaskCheckStatu
     if (!userCode || !projectConfig) return;
     setLoadingTaskKey(taskKey);
     try {
-      const subtasks = task.subtasks || [];
+      // Handle both standard 'subtasks' array and ProjectTasks structure
+      let subtasks = task.subtasks || [];
+      
+      // For ProjectTasks structure, convert object entries to array
+      if (subtasks.length === 0 && task.title) {
+        // This might be a ProjectTasks structure where subtasks are separate properties
+        subtasks = Object.entries(task)
+          .filter(([key]) => key !== 'title')
+          .map(([key, value]) => value);
+      }
+      
       let allComplete = true;
       const subtaskResults = [];
       for (let i = 0; i < subtasks.length; i++) {
@@ -223,8 +316,8 @@ function Statement({ userCode, projectConfig, taskCheckStatus, setTaskCheckStatu
       )}
 
       <div className="space-y-6 mt-10">
-        {project.tasks
-          ? Object.entries(project.tasks).map(([taskKey, task]) => {
+                {project.tasks || project.ProjectTasks
+          ? Object.entries(project.tasks || project.ProjectTasks).map(([taskKey, task]) => {
               const isExpanded = expandedTask === taskKey;
               return (
                 <div

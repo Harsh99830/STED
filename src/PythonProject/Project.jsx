@@ -173,13 +173,25 @@ function Project() {
     setShowSubmitOverlay(true);
     setTaskCheckStatus({});
     setExpandedTask(null);
-    const tasks = Object.entries(projectConfig.tasks || {});
+    const tasks = Object.entries(projectConfig.tasks || projectConfig.ProjectTasks || {});
     let results = [];
     for (let i = 0; i < tasks.length; i++) {
       const [taskKey, task] = tasks[i];
       const subtaskResults = [];
-      for (let j = 0; j < (task.subtasks || []).length; j++) {
-        const subtask = task.subtasks[j];
+      
+      // Handle both standard 'subtasks' array and ProjectTasks structure
+      let subtasks = task.subtasks || [];
+      
+      // For ProjectTasks structure, convert object entries to array
+      if (subtasks.length === 0 && task.title) {
+        // This might be a ProjectTasks structure where subtasks are separate properties
+        subtasks = Object.entries(task)
+          .filter(([key]) => key !== 'title')
+          .map(([key, value]) => value);
+      }
+      
+      for (let j = 0; j < subtasks.length; j++) {
+        const subtask = subtasks[j];
         const prompt = `User's Code:\n\n${userCode}\n\nSubtask: ${subtask}\n\nIs this subtask clearly implemented in the user's code? Respond only with true or false.`;
         let isSubtaskComplete = false;
         try {
@@ -227,11 +239,23 @@ function Project() {
 
   const handleTaskClick = async (taskKey, task) => {
     setExpandedTask(taskKey);
+    
+    // Handle both standard 'subtasks' array and ProjectTasks structure
+    let subtasks = task.subtasks || [];
+    
+    // For ProjectTasks structure, convert object entries to array
+    if (subtasks.length === 0 && task.title) {
+      // This might be a ProjectTasks structure where subtasks are separate properties
+      subtasks = Object.entries(task)
+        .filter(([key]) => key !== 'title')
+        .map(([key, value]) => value);
+    }
+    
     // Only check subtasks if not already checked
-    if (!subtaskCheckResults[taskKey] && task.subtasks && task.subtasks.length > 0) {
+    if (!subtaskCheckResults[taskKey] && subtasks.length > 0) {
       const results = [];
-      for (let i = 0; i < task.subtasks.length; i++) {
-        const subtask = task.subtasks[i];
+      for (let i = 0; i < subtasks.length; i++) {
+        const subtask = subtasks[i];
         const prompt = `User's Code:\n\n${userCode}\n\nSubtask: ${subtask}\n\nIs this subtask clearly implemented in the user's code? Respond only with true or false.`;
         let isComplete = false;
         try {
@@ -446,7 +470,7 @@ function Project() {
           }}>
             <h2 className="text-2xl font-bold mb-6 text-center" style={{ color: '#a78bfa', letterSpacing: 1 }}>Submission Review</h2>
             <div style={{ fontSize: 18 }}>
-              {Object.entries(projectConfig.tasks || {}).map(([taskKey, task], idx) => (
+              {Object.entries(projectConfig.tasks || projectConfig.ProjectTasks || {}).map(([taskKey, task], idx) =>
                 <div key={taskKey} style={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -490,12 +514,12 @@ function Project() {
                     </ul>
                   )}
                 </div>
-              ))}
+              )}
             </div>
             <div className="flex justify-end mt-8">
               {(() => {
                 // Check if all tasks are completed (have ticks)
-                const allTasksCompleted = Object.entries(projectConfig.tasks || {}).every(([taskKey, task]) => {
+                const allTasksCompleted = Object.entries(projectConfig.tasks || projectConfig.ProjectTasks || {}).every(([taskKey, task]) => {
                   return taskCheckStatus[taskKey];
                 });
                 

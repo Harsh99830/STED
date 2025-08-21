@@ -1,5 +1,5 @@
 {
-  "Concept": "Lists, Loops, Functions, Conditionals, User Input",
+  "Concept": "Lists, Loops, Functions, Conditionals, Input",
   "aiPrompts": {
     "contextInstructions": "You are a helpful Python programming tutor. The user is working on a Personal Finance Tracker project. Give small, chat-like responses (2-3 sentences max). Be encouraging and helpful. Don't provide complete code solutions - give hints and syntax examples instead. Focus on the current incomplete task only.",
     "fallbackHint": "💡 **Hint**: Take it step by step! Break down your problem into smaller parts. What's the first thing you need to do?",
@@ -10,98 +10,54 @@
   "id": "project1",
   "tasks": {
     "task1": {
-      "codeChecks": [
-        "def show_menu",
-        "print",
-        "Personal Finance Tracker",
-        "while True",
-        "/input_async|input\\(/"
-      ],
       "subtasks": [
-        "Create show_menu() function",
-        "Add print statements for menu options",
-        "Create main while loop",
-        "Call show_menu() in loop",
-        "Get user input with input_async()"
+        "Define show_menu()",
+        "Print: Add Income, Add Expense, View Summary, Exit",
+        "Create while loop to show menu",
+        "Take user input (1-4)",
+        "Handle invalid input"
       ],
       "title": "Create Menu System"
     },
     "task2": {
-      "codeChecks": [
-        "def add_income",
-        "/input_async|input\\(/",
-        "float(",
-        "return"
-      ],
       "subtasks": [
-        "Create add_income() function",
-        "Use input_async() to get amount",
+        "Define add_income()",
+        "Ask income amount using input()",
         "Convert input to float",
-        "Return the amount"
+        "Append amount to incomes list",
+        "Print success message"
       ],
       "title": "Add Income Feature"
     },
     "task3": {
-      "codeChecks": [
-        "def add_expense",
-        "/input_async|input\\(/",
-        "return",
-        "{"
-      ],
       "subtasks": [
-        "Create add_expense() function",
-        "Get expense name with input_async()",
-        "Get expense amount with input_async()",
-        "Return dictionary with name and amount"
+        "Define add_expense()",
+        "Ask expense name & amount",
+        "Store as dictionary",
+        "Append to expenses list",
+        "Print success message"
       ],
       "title": "Add Expense Feature"
     },
     "task4": {
-      "codeChecks": [
-        "def show_summary(",
-        "sum(",
-        "print"
-      ],
       "subtasks": [
-        "Create show_summary() function",
-        "Calculate total income with sum()",
-        "Calculate total expenses with sum()",
-        "Display formatted summary"
+        "Define show_summary()",
+        "Sum incomes and expenses",
+        "Calculate balance",
+        "Print totals: income, expense, balance",
+        "Print breakdown of expenses"
       ],
-      "title": "View Balance Feature"
+      "title": "Create Summary Function"
     },
     "task5": {
-      "codeChecks": [
-        "incomes = []",
-        "expenses = []",
-        "incomes.append",
-        "expenses.append"
-      ],
       "subtasks": [
-        "Initialize incomes list",
-        "Initialize expenses list",
-        "Add income to list in main loop",
-        "Add expense to list in main loop"
+        "Call add_income() on 1",
+        "Call add_expense() on 2",
+        "Call show_summary() on 3",
+        "Break loop on 4",
+        "Print error for others"
       ],
-      "title": "Data Management"
-    },
-    "task6": {
-      "codeChecks": [
-        "if choice == '1'",
-        "elif choice == '2'",
-        "elif choice == '3'",
-        "elif choice == '4'",
-        "else:",
-        "Invalid choice"
-      ],
-      "subtasks": [
-        "Handle choice == '1' (Add Income)",
-        "Handle choice == '2' (Add Expense)",
-        "Handle choice == '3' (View Summary)",
-        "Handle choice == '4' (Exit)",
-        "Handle invalid choices"
-      ],
-      "title": "Menu Logic Implementation"
+      "title": "Handle Menu Choices"
     }
   },
   "terminalChecks": {
@@ -184,7 +140,8 @@
       "incomes = []",
       "expenses = []",
       "input_async(",
-      "sum("
+      "sum(",
+      "input("
     ],
     "requiredFunctionCalls": [
       "show_menu()",

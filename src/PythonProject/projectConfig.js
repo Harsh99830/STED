@@ -9,12 +9,42 @@ import { getDatabase, ref, get } from 'firebase/database';
 // Load project configuration from Firebase
 export const getProjectConfig = async (projectId) => {
   const db = getDatabase();
-  // Capitalize first letter for Firebase path
-  const projectKey = projectId.charAt(0).toUpperCase() + projectId.slice(1);
-  const projectRef = ref(db, `PythonProject/${projectKey}`);
-  const snapshot = await get(projectRef);
+  
+  // Try with the exact key first
+  let projectRef = ref(db, `PythonProject/${projectId}`);
+  let snapshot = await get(projectRef);
+  
+  // If not found, try with capitalized key for backward compatibility
+  if (!snapshot.exists()) {
+    const projectKey = projectId.charAt(0).toUpperCase() + projectId.slice(1);
+    projectRef = ref(db, `PythonProject/${projectKey}`);
+    snapshot = await get(projectRef);
+  }
+  
+  // If still not found, try with lowercase key for Gemini-generated projects
+  if (!snapshot.exists()) {
+    const lowercaseKey = projectId.toLowerCase();
+    projectRef = ref(db, `PythonProject/${lowercaseKey}`);
+    snapshot = await get(projectRef);
+  }
+  
   if (snapshot.exists()) {
-    return snapshot.val();
+    const projectData = snapshot.val();
+    
+    // Normalize the structure to handle both regular and Gemini-generated projects
+    const normalizedProject = {
+      ...projectData,
+      // If ProjectTasks exists but tasks doesn't, use ProjectTasks as tasks
+      tasks: projectData.tasks || projectData.ProjectTasks || {
+        task1: { 
+          title: projectData.title || 'Main Task', 
+          subtasks: projectData.subtasks || [],
+          description: projectData.description || ''
+        }
+      }
+    };
+    
+    return normalizedProject;
   }
   return null;
 };

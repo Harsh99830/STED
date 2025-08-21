@@ -587,10 +587,10 @@ function Python() {
                         >
                           ×
                         </button>
-                    
+
                     <div className="p-12">
                       <ProjectRecommender learnedConcepts={userData.python?.learnedConcepts} completedProjects={completedProjects}>
-                        {({ recommendedProject, loading, error, getNextProject, hasMultipleProjects, currentProjectIndex, totalProjects }) => {
+                        {({ recommendedProject, loading, error, getNextProject, hasMultipleProjects, currentProjectIndex, totalProjects, saveProjectToFirebase, generatingProject }) => {
                           if (loading) return (
                             <div className="flex items-center justify-center py-16">
                               <div className="text-center">
@@ -616,22 +616,51 @@ function Python() {
                               <div className="mb-10">
                                 <div className="text-center mb-8 relative">
                                   {/* See Another Link */}
-                                  {hasMultipleProjects && (
-                                    <div className="absolute top-0 right-0 z-10 group">
+                                  <div className="absolute top-0 right-0 z-10 flex gap-2">
+                                    {hasMultipleProjects && (
+                                      <div className="group">
+                                        <button
+                                          onClick={getNextProject}
+                                          className="text-purple-600 hover:text-purple-700 text-sm font-semibold transition-colors relative"
+                                          disabled={generatingProject}
+                                        >
+                                          <img 
+                                            className={`w-7 ${generatingProject ? 'opacity-50' : ''}`} 
+                                            src={SeeAnother} 
+                                            alt="Next project" 
+                                          />
+                                          {/* Hover Overlay */}
+                                          <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20">
+                                            Next Project
+                                            <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                          </div>
+                                        </button>
+                                      </div>
+                                    )}
+                                    <div className="group">
                                       <button
-                                        onClick={getNextProject}
+                                        onClick={() => getNextProject(true)}
                                         className="text-purple-600 hover:text-purple-700 text-sm font-semibold transition-colors relative"
+                                        disabled={generatingProject}
+                                        title="Generate new project with AI"
                                       >
-                                        <img className="w-7" src={SeeAnother} alt="" />
+                                        {generatingProject ? (
+                                          <div className="w-7 h-7 flex items-center justify-center">
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
+                                          </div>
+                                        ) : (
+                                          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                          </svg>
+                                        )}
                                         {/* Hover Overlay */}
                                         <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-20">
-                                          See Another
-                                          {/* Arrow pointing down */}
+                                          Generate New Project
                                           <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                                         </div>
                                       </button>
                                     </div>
-                                  )}
+                                  </div>
                                   
                                   <h2 className="text-4xl font-bold mb-4 text-purple-700 bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent">
                                     {recommendedProject.title}
@@ -661,11 +690,20 @@ function Python() {
                                 </div>
                       </div>
 
-                              <div className="flex gap-4">
-                        <button
+                              <div className="flex gap-4"><button
                                   onClick={async () => {
-                                    // Set this project as the user's current project in Firebase
                                     if (!user) return;
+                                    
+                                    // Save generated project to Firebase if it's a new Gemini-generated project
+                                    if (recommendedProject.id && recommendedProject.id.startsWith('generated_project_')) {
+                                      const saved = await saveProjectToFirebase(recommendedProject);
+                                      if (!saved) {
+                                        alert('Failed to save project. Please try again.');
+                                        return;
+                                      }
+                                    }
+                                    
+                                    // Set this project as the user's current project in Firebase
                                     const userRef = ref(db, 'users/' + user.id);
                                     // Ensure project key starts with capital 'P'
                                     let projectKey = recommendedProject.id || recommendedProject.title;
@@ -688,8 +726,16 @@ function Python() {
                                     navigate('/python/project');
                                   }}
                                   className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-lg shadow-lg hover:shadow-xl transform hover:scale-105"
+                                  disabled={generatingProject}
                         >
-                          🚀 Start Project
+                          {generatingProject ? (
+                            <>
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                              Generating...
+                            </>
+                          ) : (
+                            <>🚀 Start Project</>
+                          )}
                         </button>
                         <button
                           onClick={handleCloseProjectOverlay}
