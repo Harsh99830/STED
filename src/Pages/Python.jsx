@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar";
 import Navbar from "../components/Navbar";
 import { useUser } from "@clerk/clerk-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getDatabase, ref, get, update, onValue, remove } from "firebase/database";
+import { getDatabase, ref, get, update, onValue, remove, set } from "firebase/database";
 import { db } from "../firebase";
 import ConceptLearned from "../components/ConceptLearned";
 import Learned from "../assets/learned.png";
@@ -47,6 +47,7 @@ function Python() {
   const [conceptPickerChecked, setConceptPickerChecked] = useState({});
   const [shownProjects, setShownProjects] = useState([]);
   const [nextProject, setNextProject] = useState(null);
+  const [generatingCustomProject, setGeneratingCustomProject] = useState(false);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -248,10 +249,132 @@ function Python() {
 
   const handleCustomProjectClick = () => {
     setShowCustomProjectOverlay(true);
+    // Reset states
+    setSelectedCustomConcepts([]);
+    setCustomProjectTheme("");
+    setConceptPickerChecked({});
   };
 
   const handleCloseProjectOverlay = () => {
     setShowProjectOverlay(false);
+  };
+
+  const generateCustomProjectWithGemini = async (selectedConcepts, theme) => {
+    setGeneratingCustomProject(true);
+    try {
+      const conceptsString = selectedConcepts.join(', ');
+      console.log('Generating custom project with concepts:', conceptsString, 'and theme:', theme);
+
+      const prompt = `Create a Python programming project for a student who has learned these concepts: ${conceptsString}
+
+Project Theme: ${theme}
+
+Please generate a project in this EXACT JSON structure:
+{
+  "Concept": "comma-separated list of concepts used",
+  "aiPrompts": {
+    "contextInstructions": "You are a helpful Python programming tutor working on [project name]. Give small, chat-like responses (2-3 sentences max). Be encouraging and helpful. Don't provide complete code solutions - give hints and syntax examples instead.",
+    "fallbackHint": "💡 **Hint**: Take it step by step! Break down your problem into smaller parts. What's the first thing you need to do?",
+    "welcomeMessage": "Hi! I'm here to help you with your **[Project Name]** project. What would you like help with?"
+  },
+  "description": "Brief description of what the project does",
+  "expectedCode": "Complete working Python code solution",
+  "id": "custom_project_${Date.now()}",
+  "tasks": {
+    "task1": {
+      "subtasks": ["step 1", "step 2", "step 3", "step 4", "step 5"],
+      "title": "Task 1 Title"
+    },
+    "task2": {
+      "subtasks": ["step 1", "step 2", "step 3", "step 4", "step 5"],
+      "title": "Task 2 Title"
+    }
+  },
+  "terminalChecks": {
+    "check1": {
+      "failureMessage": "❌ Feature not working",
+      "keywords": ["keyword1", "keyword2"],
+      "successMessage": "✅ Feature is working"
+    }
+  },
+  "title": "Project Title",
+  "validationRules": {
+    "requiredComponents": ["def function1()", "variable = []"],
+    "requiredFunctionCalls": ["function1()"],
+    "requiredLogic": ["if condition:", "for loop:", "while loop:"]
+  }
+}
+
+IMPORTANT INSTRUCTIONS:
+1. Project MUST be based on the theme: "${theme}"
+2. Use ONLY these concepts: ${conceptsString}
+3. Include 3-5 tasks, each with 3-5 subtasks
+4. Make it challenging but achievable for a student who knows these concepts
+5. Include proper validation rules and terminal checks
+6. Use emojis in messages for engagement
+7. The project should be practical and useful within the theme context
+8. Return ONLY valid JSON, no additional text
+9. Make sure the project title reflects the theme and is engaging
+10. Ensure the description clearly explains what the student will build`;
+
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      const data = await response.json();
+      const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      
+      if (!generatedText) {
+        throw new Error('No response from Gemini');
+      }
+
+      // Extract JSON from response (remove markdown formatting if present)
+      const jsonMatch = generatedText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No valid JSON found in response');
+      }
+
+      const projectData = JSON.parse(jsonMatch[0]);
+      
+      // Return the generated project
+      return projectData;
+    } catch (error) {
+      console.error('Error generating custom project:', error);
+      throw new Error('Failed to generate custom project. Please try again.');
+    } finally {
+      setGeneratingCustomProject(false);
+    }
+  };
+
+  const handleCreateCustomProject = async () => {
+    if (selectedCustomConcepts.length === 0 || !customProjectTheme.trim()) {
+      return;
+    }
+
+    try {
+      // Generate the project using Gemini
+      const customProject = await generateCustomProjectWithGemini(
+        selectedCustomConcepts,
+        customProjectTheme.trim()
+      );
+
+      if (customProject) {
+        // Close the custom project overlay
+        setShowCustomProjectOverlay(false);
+        
+        // Set the generated project as nextProject and show the project overlay
+        setNextProject(customProject);
+        setShowProjectOverlay(true);
+      }
+    } catch (error) {
+      console.error('Error creating custom project:', error);
+      alert('Failed to create custom project. Please try again.');
+    }
   };
 
   const handleProjectClick = (project) => {
@@ -770,6 +893,19 @@ function Python() {
                               onClick={async () => {
                                 if (!user) return;
                                 
+                                // Save custom project to Firebase if it's a custom-generated project
+                                if (nextProject.id && nextProject.id.startsWith('custom_project_')) {
+                                  try {
+                                    const projectRef = ref(db, `PythonProject/${nextProject.id}`);
+                                    await set(projectRef, nextProject);
+                                    console.log('Custom project saved to Firebase');
+                                  } catch (error) {
+                                    console.error('Error saving custom project to Firebase:', error);
+                                    alert('Failed to save custom project. Please try again.');
+                                    return;
+                                  }
+                                }
+                                
                                 // Set this project as the user's current project in Firebase
                                 const userRef = ref(db, 'users/' + user.id);
                                 let projectKey = nextProject.id;
@@ -1200,7 +1336,7 @@ function Python() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-              className="bg-white border-2 border-purple-200 rounded-3xl shadow-2xl px-16 py-12 max-w-3xl w-full h-[38rem] text-left relative flex flex-col justify-between"
+              className="bg-white border-2 border-purple-200 rounded-3xl shadow-2xl px-16 py-8 max-w-3xl w-full max-h-[85vh] text-left relative flex flex-col"
               onClick={e => e.stopPropagation()}
             >
               <button
@@ -1210,52 +1346,81 @@ function Python() {
               >
                 ×
               </button>
-              <h2 className="text-3xl font-extrabold mb-8 text-purple-800 tracking-tight drop-shadow">Create Custom Project</h2>
-              <div className="mb-8">
-                <label className="block text-lg font-semibold text-purple-700 mb-3">Concepts Used</label>
-                <div className="flex flex-wrap gap-3 min-h-[3.5rem] max-h-40 overflow-y-auto bg-purple-50/60 rounded-xl p-3 mb-3 border border-purple-200">
-                  {selectedCustomConcepts.length === 0 && (
-                    <span className="text-purple-300 text-base">No concepts selected</span>
-                  )}
-                  {selectedCustomConcepts.map((c, i) => (
-                    <span key={i} className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 text-white border-2 border-purple-300 text-base font-semibold shadow-md">
-                      {c}
-                    </span>
-                  ))}
+              <div className="flex-shrink-0">
+                <h2 className="text-3xl font-extrabold mb-6 text-purple-800 tracking-tight drop-shadow">Create Custom Project</h2>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto">
+                <div className="mb-6">
+                  <label className="block text-lg font-semibold text-purple-700 mb-3">Concepts Used</label>
+                  <div className="flex flex-wrap gap-3 min-h-[3.5rem] max-h-48 overflow-y-auto bg-purple-50/60 rounded-xl p-3 mb-3 border border-purple-200">
+                    {selectedCustomConcepts.length === 0 && (
+                      <span className="text-purple-300 text-base">No concepts selected</span>
+                    )}
+                    {selectedCustomConcepts.map((concept, i) => (
+                      <div key={i} className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-purple-400 to-blue-400 text-white border-2 border-purple-300 text-base font-semibold shadow-md group hover:from-purple-500 hover:to-blue-500 transition-all">
+                        <span className="mr-2">{concept}</span>
+                        <button
+                          onClick={() => {
+                            setSelectedCustomConcepts(prev => prev.filter((_, index) => index !== i));
+                          }}
+                          className="ml-1 hover:bg-white/20 rounded-full p-0.5 transition-colors"
+                          type="button"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    className="px-6 py-2 bg-purple-600 cursor-pointer hover:bg-purple-700 text-white rounded-xl font-bold text-base shadow-lg transition-all"
+                    onClick={() => setShowConceptPicker(true)}
+                    type="button"
+                  >
+                    + Add Concept
+                  </button>
                 </div>
-                <button
-                  className="mt-2 px-6 py-2 bg-purple-600 cursor-pointer hover:from-purple-700 hover:to-blue-700 text-white rounded-xl font-bold text-base shadow-lg transition-all"
-                  onClick={() => setShowConceptPicker(true)}
-                  type="button"
-                >
-                  + Add Concept
-                </button>
+                
+                <div className="border-t border-purple-200 my-4"></div>
+                
+                <div className="mb-6">
+                  <label className="block text-lg font-semibold text-purple-700 mb-3">Project Theme</label>
+                  <input
+                    type="text"
+                    value={customProjectTheme}
+                    onChange={e => setCustomProjectTheme(e.target.value)}
+                    placeholder="e.g. Personal Finance Tracker"
+                    className="w-full px-5 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent text-lg bg-white/80 shadow"
+                  />
+                </div>
               </div>
-              <div className="border-t border-purple-200 my-6"></div>
-              <div className="mb-8">
-                <label className="block text-lg font-semibold text-purple-700 mb-3">Project Theme (Optional)</label>
-                <input
-                  type="text"
-                  value={customProjectTheme}
-                  onChange={e => setCustomProjectTheme(e.target.value)}
-                  placeholder="e.g. Personal Finance Tracker"
-                  className="w-full px-5 py-3 border-2 border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent text-lg bg-white/80 shadow"
-                />
-              </div>
-              <div className="flex justify-end gap-4 mt-8">
-                <button
-                  className="px-6 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-base shadow"
-                  onClick={() => setShowCustomProjectOverlay(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-6 py-2 rounded-xl bg-blue-700 text-white font-bold text-base shadow-lg"
-                  onClick={() => setShowCustomProjectOverlay(false)}
-                  disabled={selectedCustomConcepts.length === 0 || !customProjectTheme}
-                >
-                  Create
-                </button>
+              
+              <div className="flex-shrink-0 border-t border-purple-200 pt-6">
+                <div className="flex justify-end gap-4">
+                  <button
+                    className="px-6 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-base shadow"
+                    onClick={() => setShowCustomProjectOverlay(false)}
+                    disabled={generatingCustomProject}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="px-6 py-2 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-bold text-base shadow-lg flex items-center justify-center gap-2 min-w-[100px]"
+                    onClick={handleCreateCustomProject}
+                    disabled={selectedCustomConcepts.length === 0 || !customProjectTheme.trim() || generatingCustomProject}
+                  >
+                    {generatingCustomProject ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Generating...
+                      </>
+                    ) : (
+                      'Create'
+                    )}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
