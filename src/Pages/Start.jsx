@@ -34,11 +34,6 @@ function Start() {
           <div className="absolute bottom-5 left-1/2 translate-x-8 w-1 h-1 bg-white/20 rounded-full"></div>
         </div>
         
-        <div className="text-center relative z-10">
-          <h2 className="text-white text-2xl font-bold drop-shadow-sm">
-            For Poornima University Students
-          </h2>
-        </div>
       </div>
 
       {/* Background bubbles */}

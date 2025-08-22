@@ -124,6 +124,8 @@ function AllSkills() {
                 updates[`${skill.node}/PublicSpeakingProjectStarted`] = false;
             } else if (skill.node === 'powerbi') {
                 updates[`${skill.node}/PowerBiProjectStarted`] = false;
+            } else if (skill.node === 'pandas') {
+                updates[`${skill.node}/PandasProjectStarted`] = false;
             }
 
             await update(userRef, updates);
@@ -311,9 +313,8 @@ function AllSkills() {
                                                             <span className="text-sm text-slate-500">6 Projects</span>
                                                         </div>
                                                         <button
-                                                            onClick={() => skill.key === 'python' && handleStartLearning(skill.key)}
-                                                            className={`inline-flex items-center font-medium ${skill.key === 'python' ? 'text-blue-600 hover:text-blue-700' : 'text-gray-400 cursor-not-allowed'}`}
-                                                            disabled={skill.key !== 'python'}
+                                                            onClick={() => handleStartLearning(skill.key)}
+                                                            className="inline-flex items-center font-medium text-blue-600 hover:text-blue-700"
                                                         >
                                                             Start Learning
                                                             <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
