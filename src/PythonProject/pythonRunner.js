@@ -4,7 +4,7 @@
  * Python runner using backend server - works with both simple and interactive code
  */
 
-const BACKEND_URL = 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Extract import statements from Python code
 function extractImports(code) {
