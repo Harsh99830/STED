@@ -20,6 +20,8 @@ function Home() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true)
   const navigate = useNavigate();
   const [pythonSP, setPythonSP] = useState(0);
+  const [powerbiSP, setPowerbiSP] = useState(0);
+  const [pandasSP, setPandasSP] = useState(0);
   const [pythonStats, setPythonStats] = useState({ learned: 0, applied: 0, total: 0 });
   const [pythonProjects, setPythonProjects] = useState([]);
   const [powerbiStats, setPowerbiStats] = useState({ learned: 0, applied: 0, total: 0 });
@@ -70,12 +72,14 @@ function Home() {
   }, [isLoaded, isSignedIn, user]);
   const pandasIcon = <span className="text-2xl mr-2">🐼</span>;
 
-  // Add calculateSkillSP at the top level inside Home
-  const calculateSkillSP = (skillKey) => {
-    if (!userData || !userData.projectHistory) return 0;
-    return userData.projectHistory
-      .filter(project => project.skill === skillKey)
-      .reduce((acc, project) => acc + (project.sp || 0), 0);
+  // Get SP for a specific skill
+  const getSkillSP = (skillKey) => {
+    switch (skillKey) {
+      case 'python': return pythonSP;
+      case 'powerbi': return powerbiSP;
+      case 'pandas': return pandasSP;
+      default: return 0;
+    }
   };
 
   // Mock data for demonstration
@@ -291,9 +295,15 @@ function Home() {
   }, [isLoaded, isSignedIn, user]);
 
   useEffect(() => {
-    // Calculate Python SP as in Python page
+    // Calculate SP for each skill
     setPythonSP(pythonProjects.length * 10 + pythonStats.learned * 2 + pythonStats.applied * 5);
-  }, [pythonProjects, pythonStats]);
+    setPowerbiSP(powerbiProjects.length * 10 + powerbiStats.learned * 2 + powerbiStats.applied * 5);
+    setPandasSP(pandasProjects.length * 10 + pandasStats.learned * 2 + pandasStats.applied * 5);
+  }, [
+    pythonProjects, pythonStats,
+    powerbiProjects, powerbiStats,
+    pandasProjects, pandasStats
+  ]);
 
   // When tab changes, persist to localStorage
   const handleTabChange = (tabId) => {
@@ -520,11 +530,7 @@ function Home() {
                       userData && userData[skill.node] && userData[skill.node][skill.currentProjectField]
                     );
                     startedSkills.forEach(([key]) => {
-                      if (key === 'python') {
-                        totalSP += pythonSP;
-                      } else {
-                        totalSP += calculateSkillSP(key);
-                      }
+                      totalSP += getSkillSP(key);
                     });
                     return <p className="text-center text-sm mb-2 text-slate-600">Total SP: {totalSP}</p>;
                   })()}
@@ -576,14 +582,15 @@ function Home() {
                     <div className="w-full mt-4">
                       <h4 className="text-slate-700 font-semibold text-sm mb-2">Your Skills & SP</h4>
                       <div className="flex flex-col gap-2">
-                          {startedSkills.map(([key, skill]) => (
-                            <div key={key} className="flex justify-between items-center bg-slate-100 rounded px-3 py-1 text-sm">
-                              <span className="text-purple-700 font-semibold">{skill.label}</span>
-                              <span className="font-semibold text-purple-700">
-                                {key === 'python' ? `${pythonSP} SP` : `${calculateSkillSP(key)} SP`}
-                              </span>
-                            </div>
-                          ))}
+                          {startedSkills.map(([key, skill]) => {
+                        const sp = getSkillSP(key);
+                        return (
+                          <div key={key} className="flex justify-between items-center bg-slate-100 rounded px-3 py-1 text-sm">
+                            <span className="text-purple-700 font-semibold">{skill.label}</span>
+                            <span className="font-semibold text-purple-700">{sp} SP</span>
+                          </div>
+                        );
+                      })}
                         </div>
                       </div>
                     );

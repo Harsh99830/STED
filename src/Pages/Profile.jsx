@@ -34,6 +34,11 @@ function Profile() {
     const [copiedProjectId, setCopiedProjectId] = useState(null);
     const [powerbiStats, setPowerbiStats] = useState({ learned: 0, applied: 0, total: 0 });
     const [pandasStats, setPandasStats] = useState({ learned: 0, applied: 0, total: 0 });
+    const [pythonSP, setPythonSP] = useState(0);
+    const [powerbiSP, setPowerbiSP] = useState(0);
+    const [pandasSP, setPandasSP] = useState(0);
+    const [dataScienceSP, setDataScienceSP] = useState(0);
+    const [publicSpeakingSP, setPublicSpeakingSP] = useState(0);
 
     useEffect(() => {
         if (isLoaded && !isSignedIn) {
@@ -172,21 +177,39 @@ function Profile() {
         }
     };
 
+    // Calculate SP for each skill
+    const calculateSkillSP = (skillKey) => {
+        switch (skillKey) {
+            case 'python': 
+                return pythonSP;
+            case 'powerbi': 
+                return powerbiSP;
+            case 'pandas': 
+                return pandasSP;
+            case 'data-science':
+                return dataScienceSP;
+            case 'public-speaking':
+                return publicSpeakingSP;
+            default: 
+                return 0;
+        }
+    };
+
     // Calculate total SP
     const calculateTotalSP = () => {
-        let totalSP = 0;
-        // Python SP: (projects * 10) + (learned * 2) + (applied * 5)
-        let pythonSP = 0;
-        if (userData && userData.python) {
-            // Count completed projects
+        return pythonSP + powerbiSP + pandasSP + dataScienceSP + publicSpeakingSP;
+    };
+
+    // Update SP calculations when stats or projects change
+    useEffect(() => {
+        // Calculate Python SP
+        if (userData?.python) {
             const pythonProjects = Object.values(userData.python.PythonCompletedProjects || {});
-            // Count learned concepts
             let learnedConcepts = userData.python.learnedConcepts || [];
             if (typeof learnedConcepts === 'object' && !Array.isArray(learnedConcepts)) {
                 learnedConcepts = Object.values(learnedConcepts);
             }
             const learned = learnedConcepts.length;
-            // Applied: count learned concepts that are used in any completed project
             const conceptsUsed = new Set();
             pythonProjects.forEach(project => {
                 if (project.conceptUsed) {
@@ -194,28 +217,25 @@ function Profile() {
                 }
             });
             const applied = learnedConcepts.filter(concept => conceptsUsed.has(concept.concept || concept)).length;
-            pythonSP = pythonProjects.length * 10 + learned * 2 + applied * 5;
+            setPythonSP(pythonProjects.length * 10 + learned * 2 + applied * 5);
         }
-        totalSP += pythonSP;
-        // Other skills: sum SP from projectHistory
-        if (userData && userData.projectHistory) {
-            const otherSkills = ['data-science', 'public-speaking', 'powerbi'];
-            otherSkills.forEach(skill => {
-                totalSP += userData.projectHistory
-                    .filter(project => project.skill === skill)
-                    .reduce((acc, project) => acc + (project.sp || 0), 0);
-            });
-        }
-        return totalSP;
-    };
 
-    // Calculate skill-specific SP
-    const calculateSkillSP = (skill) => {
-        if (!userData.projectHistory) return 0;
-        return userData.projectHistory
-            .filter(project => project.skill === skill)
-            .reduce((acc, project) => acc + (project.sp || 0), 0);
-    };
+        // Calculate PowerBI SP
+        const powerbiProjects = Object.values(userData?.powerbi?.PowerBiCompletedProjects || {});
+        setPowerbiSP(powerbiProjects.length * 10 + powerbiStats.learned * 2 + powerbiStats.applied * 5);
+
+        // Calculate Pandas SP
+        const pandasProjects = Object.values(userData?.pandas?.PandasCompletedProjects || {});
+        setPandasSP(pandasProjects.length * 10 + pandasStats.learned * 2 + pandasStats.applied * 5);
+
+        // Calculate Data Science SP (from project history)
+        const dataScienceProjects = userData?.projectHistory?.filter(p => p.skill === 'data-science') || [];
+        setDataScienceSP(dataScienceProjects.reduce((acc, p) => acc + (p.sp || 0), 0));
+
+        // Calculate Public Speaking SP (from project history)
+        const publicSpeakingProjects = userData?.projectHistory?.filter(p => p.skill === 'public-speaking') || [];
+        setPublicSpeakingSP(publicSpeakingProjects.reduce((acc, p) => acc + (p.sp || 0), 0));
+    }, [userData, powerbiStats, pandasStats]);
 
     if (isLoading) {
         return (

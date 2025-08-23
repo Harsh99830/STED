@@ -201,7 +201,7 @@ function Pandas() {
       navigate('/pandas/project');
     } catch (err) {
       console.error('Failed to update project status:', err);
-      // Still navigate even if update fails
+      // navigate even if update fails
       navigate('/pandas/project');
     }
   };
@@ -478,26 +478,26 @@ function Pandas() {
                   }
                   const totalLearned = learnedConcepts.length;
                   const statusCounts = learnedConcepts.reduce((acc, c) => {
-                    if (c.status === 'understood') acc.understood++;
-                    else if (c.status === 'partially understood') acc.partially++;
-                    else if (c.status === 'still confused') acc.confused++;
+                    if (c.status === 'Clear') acc.Clear++;
+                    else if (c.status === 'Unclear') acc.Unclear++;
+                    else if (c.status === 'confused') acc.confused++;
                     return acc;
-                  }, { understood: 0, partially: 0, confused: 0 });
+                  }, { Clear: 0, Unclear: 0, confused: 0 });
                   return (
                     <div className="flex flex-col gap-2 mt-2">
                       <div className="flex items-center gap-2 mt-3 border-b border-slate-200 pb-2">
                         <span className="inline-block w-2 h-2 rounded-full bg-black mr-2"></span>
-                        <span className="text-black font-normal">Understood</span>
-                        <span className="ml-auto text-black px-2 py-0.5 rounded-full text-lg font-semibold">{statusCounts.understood} / {totalLearned}</span>
+                        <span className="text-black font-normal">Clear</span>
+                        <span className="ml-auto text-black px-2 py-0.5 rounded-full text-lg font-semibold">{statusCounts.Clear} / {totalLearned}</span>
                       </div>
                       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                         <span className="inline-block w-2 h-2 rounded-full bg-black mr-2"></span>
-                        <span className="text-black font-normal">Partially Understood</span>
-                        <span className="ml-auto text-black px-2 py-0.5 rounded-full text-lg font-semibold">{statusCounts.partially} / {totalLearned}</span>
+                        <span className="text-black font-normal">Unclear</span>
+                        <span className="ml-auto text-black px-2 py-0.5 rounded-full text-lg font-semibold">{statusCounts.Unclear} / {totalLearned}</span>
                       </div>
                       <div className="flex items-center gap-2 pt-2">
                         <span className="inline-block w-2 h-2 rounded-full bg-black mr-2"></span>
-                        <span className="text-black font-normal">Still Confused</span>
+                        <span className="text-black font-normal">Confused</span>
                         <span className="ml-auto text-black px-2 py-0.5 rounded-full text-lg font-semibold">{statusCounts.confused} / {totalLearned}</span>
                       </div>
                     </div>
@@ -788,7 +788,7 @@ function Pandas() {
                                   navigate(`/pandas/project`);
                                 } catch (err) {
                                   console.error('Failed to start project:', err);
-                                  // Still navigate even if update fails
+                                  // navigate even if update fails
                                   handleCloseProjectOverlay();
                                   navigate(`/pandas/project`);
                                 }

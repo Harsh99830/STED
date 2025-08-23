@@ -653,10 +653,10 @@ IMPORTANT INSTRUCTIONS:
                   const totalLearned = learnedConcepts.length;
                   const statusCounts = learnedConcepts.reduce((acc, c) => {
                     if (c.status === 'Clear') acc.Clear++;
-                    else if (c.status === 'Unclear') acc.partially++;
+                    else if (c.status === 'Unclear') acc.Unclear++;
                     else if (c.status === 'confused') acc.confused++;
                     return acc;
-                  }, { Clear: 0, partially: 0, confused: 0 });
+                  }, { Clear: 0, Unclear: 0, confused: 0 });
                   return (
                     <div className="flex flex-col gap-2 mt-2">
                       <div className="flex items-center gap-2 mt-3 border-b border-slate-200 pb-2">
@@ -667,7 +667,7 @@ IMPORTANT INSTRUCTIONS:
                       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                         <span className="inline-block w-2 h-2 rounded-full bg-black mr-2"></span>
                         <span className="text-black font-normal">Unclear</span>
-                        <span className="ml-auto text-black px-2 py-0.5 rounded-full text-lg font-semibold">{statusCounts.partially} / {totalLearned}</span>
+                        <span className="ml-auto text-black px-2 py-0.5 rounded-full text-lg font-semibold">{statusCounts.Unclear} / {totalLearned}</span>
                       </div>
                       <div className="flex items-center gap-2 pt-2">
                         <span className="inline-block w-2 h-2 rounded-full bg-black mr-2"></span>
