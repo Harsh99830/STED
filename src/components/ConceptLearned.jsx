@@ -179,7 +179,7 @@ function ConceptLearned({ completedProjects = [], skillName = 'python' }) {
         (item) => !learnedConcepts.some((c) => c.category === item.category && c.concept === item.concept)
       ).map((item) => ({
         ...item,
-        status: conceptStatuses[`${item.category}:${item.concept}`] || 'understood',
+        status: conceptStatuses[`${item.category}:${item.concept}`] || 'Clear',
         addedAt: new Date().toISOString(), // Add timestamp
         sources: sources, // Add sources if provided
       })),
@@ -653,9 +653,9 @@ function ConceptLearned({ completedProjects = [], skillName = 'python' }) {
                                 {item.status && (
                                   <span
                                       className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap border
-                                        ${item.status === 'understood' ? 'bg-green-100 text-green-700 border-green-300' : ''}
-                                        ${item.status === 'partially understood' ? 'bg-orange-100 text-orange-700 border-orange-300' : ''}
-                                        ${item.status === 'still confused' ? 'bg-red-100 text-red-700 border-red-300' : ''}
+                                        ${item.status === 'Clear' ? 'bg-green-100 text-green-700 border-green-300' : ''}
+                                        ${item.status === 'Unclear' ? 'bg-orange-100 text-orange-700 border-orange-300' : ''}
+                                        ${item.status === 'confused' ? 'bg-red-100 text-red-700 border-red-300' : ''}
                                     `}
                                   >
                                     {item.status}
@@ -757,32 +757,32 @@ function ConceptLearned({ completedProjects = [], skillName = 'python' }) {
                       <input
                         type="radio"
                         name={`status-${item.category}-${item.concept}`}
-                        value="understood"
-                        checked={conceptStatuses[`${item.category}:${item.concept}`] === 'understood'}
+                        value="Clear"
+                        checked={conceptStatuses[`${item.category}:${item.concept}`] === 'Clear'}
                         onChange={(e) => setConceptStatuses(s => ({ ...s, [`${item.category}:${item.concept}`]: e.target.value }))}
                         disabled={adding}
                         className="w-3 h-3 text-green-600 bg-slate-100 border-slate-300 focus:ring-0"
                       />
-                      <span className="text-xs text-slate-700">Understood</span>
+                      <span className="text-xs text-slate-700">Clear</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer hover:bg-white px-2 py-1 rounded transition-colors">
                       <input
                         type="radio"
                         name={`status-${item.category}-${item.concept}`}
-                        value="partially understood"
-                        checked={conceptStatuses[`${item.category}:${item.concept}`] === 'partially understood'}
+                        value="Unclear"
+                        checked={conceptStatuses[`${item.category}:${item.concept}`] === 'Unclear'}
                         onChange={(e) => setConceptStatuses(s => ({ ...s, [`${item.category}:${item.concept}`]: e.target.value }))}
                         disabled={adding}
                         className="w-3 h-3 text-orange-600 bg-slate-100 border-slate-300 focus:ring-0"
                       />
-                      <span className="text-xs text-slate-700">Partial</span>
+                      <span className="text-xs text-slate-700">Unclear</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer hover:bg-white px-2 py-1 rounded transition-colors">
                       <input
                         type="radio"
                         name={`status-${item.category}-${item.concept}`}
-                        value="still confused"
-                        checked={conceptStatuses[`${item.category}:${item.concept}`] === 'still confused'}
+                        value="confused"
+                        checked={conceptStatuses[`${item.category}:${item.concept}`] === 'confused'}
                         onChange={(e) => setConceptStatuses(s => ({ ...s, [`${item.category}:${item.concept}`]: e.target.value }))}
                         disabled={adding}
                         className="w-3 h-3 text-red-600 bg-slate-100 border-slate-300 focus:ring-0"
@@ -903,9 +903,9 @@ function ConceptLearned({ completedProjects = [], skillName = 'python' }) {
                         disabled={savingStatus}
                   >
                     <option value="">Select status</option>
-                    <option value="understood">Understood</option>
-                    <option value="partially understood">Partially Understood</option>
-                    <option value="still confused">Still Confused</option>
+                    <option value="Clear">Clear</option>
+                    <option value="Unclear">Unclear</option>
+                    <option value="confused">Confused</option>
                   </select>
                       <button
                         onClick={handleSaveStatus}
@@ -927,9 +927,9 @@ function ConceptLearned({ completedProjects = [], skillName = 'python' }) {
                       {selectedConceptDetails.status ? (
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-semibold border
-                            ${selectedConceptDetails.status === 'understood' ? 'bg-green-100 text-green-700 border-green-300' : ''}
-                            ${selectedConceptDetails.status === 'partially understood' ? 'bg-orange-100 text-orange-700 border-orange-300' : ''}
-                            ${selectedConceptDetails.status === 'still confused' ? 'bg-red-100 text-red-700 border-red-300' : ''}
+                            ${selectedConceptDetails.status === 'Clear' ? 'bg-green-100 text-green-700 border-green-300' : ''}
+                            ${selectedConceptDetails.status === 'Unclear' ? 'bg-orange-100 text-orange-700 border-orange-300' : ''}
+                            ${selectedConceptDetails.status === 'confused' ? 'bg-red-100 text-red-700 border-red-300' : ''}
                           `}
                         >
                           {selectedConceptDetails.status}
