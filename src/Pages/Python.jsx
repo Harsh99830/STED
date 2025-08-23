@@ -393,8 +393,7 @@ IMPORTANT INSTRUCTIONS:
     
     const userRef = ref(db, 'users/' + user.id);
     await update(userRef, { 
-      'python/PythonProjectStarted': false,
-      'python/PythonCurrentProject': null
+      'python/PythonProjectStarted': false
     });
     
     // Update local state
@@ -402,8 +401,7 @@ IMPORTANT INSTRUCTIONS:
       ...prev,
       python: {
         ...prev.python,
-        PythonProjectStarted: false,
-        PythonCurrentProject: undefined
+        PythonProjectStarted: false
       }
     }));
   };
@@ -889,33 +887,27 @@ IMPORTANT INSTRUCTIONS:
                           </div>
 
                           <div className="flex gap-4">
-                            <button
-                              onClick={async () => {
-                                if (!user) return;
-                                
+                           <button
+                            onClick={async () => {
+                              if (!user) return;
+
+                              try {
                                 // Save custom project to Firebase if it's a custom-generated project
                                 if (nextProject.id && nextProject.id.startsWith('custom_project_')) {
-                                  try {
-                                    const projectRef = ref(db, `PythonProject/${nextProject.id}`);
-                                    await set(projectRef, nextProject);
-                                    console.log('Custom project saved to Firebase');
-                                  } catch (error) {
-                                    console.error('Error saving custom project to Firebase:', error);
-                                    alert('Failed to save custom project. Please try again.');
-                                    return;
-                                  }
+                                  const projectRef = ref(db, 'PythonProject');
+                                  const customProjectRef = child(projectRef, nextProject.id); // ✅ preserves case
+                                  await set(customProjectRef, nextProject);
+                                  console.log('Custom project saved to Firebase');
                                 }
-                                
+
                                 // Set this project as the user's current project in Firebase
                                 const userRef = ref(db, 'users/' + user.id);
                                 let projectKey = nextProject.id;
-                                if (typeof projectKey === 'string' && projectKey.length > 0) {
-                                  projectKey = projectKey[0].toUpperCase() + projectKey.slice(1);
-                                }
                                 await update(userRef, {
                                   'python/PythonCurrentProject': projectKey,
                                   'python/PythonProjectStarted': true
                                 });
+
                                 setUserData(prev => ({
                                   ...prev,
                                   python: {
@@ -924,13 +916,19 @@ IMPORTANT INSTRUCTIONS:
                                     PythonProjectStarted: true
                                   }
                                 }));
+
                                 setShowProjectOverlay(false);
                                 navigate('/python/project');
-                              }}
-                              className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-lg shadow-lg hover:shadow-xl transform hover:scale-105"
-                            >
-                              🚀 Start Project
-                            </button>
+                              } catch (error) {
+                                console.error('Error saving project to Firebase:', error);
+                                alert('Failed to save project. Please try again.');
+                              }
+                            }}
+                            className="flex-1 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 text-lg shadow-lg hover:shadow-xl transform hover:scale-105"
+                          >
+                            🚀 Start Project
+                          </button>
+
                             <button
                               onClick={handleCloseProjectOverlay}
                               className="px-8 py-4 border-2 border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 rounded-xl transition-all duration-300 font-semibold text-lg"

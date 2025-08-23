@@ -82,23 +82,23 @@ function Project() {
   };
 
   const handleEndProject = async () => {
-    try {
-      if (user) {
-        const userRef = ref(db, 'users/' + user.id);
-        const updates = {
-          'python/PythonProjectStarted': false,
-          'python/PythonCurrentProject': null
-        };
-        await update(userRef, updates);
-      }
-      setShowEndProjectOverlay(false);
-      navigate('/python');
-    } catch (err) {
-      console.error('Failed to end project:', err);
-      setShowEndProjectOverlay(false);
-      navigate('/python');
+  try {
+    if (user) {
+      const userRef = ref(db, 'users/' + user.id);
+      // Only update PythonProjectStarted, leave PythonCurrentProject as is
+      const updates = {
+        'python/PythonProjectStarted': false
+      };
+      await update(userRef, updates);
     }
-  };
+    setShowEndProjectOverlay(false);
+    navigate('/python');
+  } catch (err) {
+    console.error('Failed to end project:', err);
+    setShowEndProjectOverlay(false);
+    navigate('/python');
+  }
+};
 
   const handleEndProjectCancel = () => {
     setShowEndProjectOverlay(false);
