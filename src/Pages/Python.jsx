@@ -1033,9 +1033,7 @@ IMPORTANT INSTRUCTIONS:
                                     const userRef = ref(db, 'users/' + user.id);
                                     // Ensure project key starts with capital 'P'
                                     let projectKey = recommendedProject.id || recommendedProject.title;
-                                    if (typeof projectKey === 'string' && projectKey.length > 0) {
-                                      projectKey = projectKey[0].toUpperCase() + projectKey.slice(1);
-                                    }
+                                    
                                     await update(userRef, {
                                       'python/PythonCurrentProject': projectKey,
                                       'python/PythonProjectStarted': true
