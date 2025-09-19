@@ -197,12 +197,31 @@ function Project() {
         try {
           const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
           const model = 'gemini-1.5-flash';
+          if (!apiKey) {
+            console.error('Gemini API key is missing. Please set VITE_GEMINI_API_KEY in your .env file.');
+            throw new Error('Missing Gemini API key');
+          }
           const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: 'user',
+                  parts: [{ text: prompt }]
+                }
+              ]
+            })
           });
           const data = await response.json();
+          if (!response.ok) {
+            console.error('Gemini API error (subtask check):', {
+              status: response.status,
+              statusText: response.statusText,
+              error: data?.error || data
+            });
+            throw new Error(data?.error?.message || `Gemini request failed with status ${response.status}`);
+          }
           let answer = '';
           if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
             answer = data.candidates[0].content.parts[0].text.trim().toLowerCase();
@@ -212,6 +231,7 @@ function Project() {
           else if (normalized.startsWith('false')) isSubtaskComplete = false;
         } catch (e) {
           // On error, treat as not complete
+          console.error('Subtask evaluation failed:', e);
         }
         subtaskResults.push({ subtask, complete: isSubtaskComplete });
       }
@@ -260,12 +280,36 @@ function Project() {
         let isComplete = false;
         try {
           const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+          if (!apiKey) {
+            console.error('Gemini API key is missing. Please set VITE_GEMINI_API_KEY in your .env file.');
+            throw new Error('Missing Gemini API key');
+          }
           const model = 'gemini-1.5-flash';
           const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            body: JSON.stringify({
+              contents: [
+                {
+                  role: 'user',
+                  parts: [{ text: prompt }]
+                }
+              ]
+            })
           });
+          if (!response.ok) {
+            if (response.status === 400) {
+              const data = await response.json();
+              console.error('Gemini API error (task expand check):', {
+                status: response.status,
+                statusText: response.statusText,
+                error: data?.error || data
+              });
+              throw new Error(data?.error?.message || `Gemini request failed with status ${response.status}`);
+            } else {
+              throw new Error(`Gemini request failed with status ${response.status}`);
+            }
+          }
           const data = await response.json();
           let answer = '';
           if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
@@ -276,6 +320,7 @@ function Project() {
           else if (normalized.startsWith('false')) isComplete = false;
         } catch (e) {
           // On error, treat as not complete
+          console.error('Subtask quick-check failed:', e);
         }
         results.push({ subtask, complete: isComplete });
       }

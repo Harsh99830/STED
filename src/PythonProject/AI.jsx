@@ -402,12 +402,36 @@ STRICT RULES:
 - If user asks about a specific function - explain only that function
 - Do NOT add related information they didn't ask for
 - Do NOT explain why something works unless asked`;
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) {
+        const msg = 'Gemini API key is missing. Set VITE_GEMINI_API_KEY in your .env and restart the dev server.';
+        console.error(msg);
+        setMessages(prev => [...prev, { id: Date.now() + 1, type: 'ai', content: msg, timestamp: new Date() }]);
+        return;
+      }
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }]
+            }
+          ]
+        })
       });
       const data = await response.json();
+      if (!response.ok) {
+        console.error('Gemini API error (AI chat):', {
+          status: response.status,
+          statusText: response.statusText,
+          error: data?.error || data
+        });
+        const errText = data?.error?.message || `Gemini request failed with status ${response.status}`;
+        setMessages(prev => [...prev, { id: Date.now() + 1, type: 'ai', content: errText, timestamp: new Date() }]);
+        return;
+      }
       let aiText = 'Sorry, I encountered an error. Please try again.';
       if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
         aiText = data.candidates[0].content.parts[0].text;
